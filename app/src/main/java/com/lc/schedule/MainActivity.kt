@@ -17,22 +17,22 @@ import java.util.Calendar
 
 class MainActivity : AppCompatActivity() {
 
-    private val macaron = listOf(
-        arrayOf("#F4A7B9", "#FDE8EE", "#333333"),
-        arrayOf("#A8D8EA", "#E0F4FA", "#333333"),
-        arrayOf("#B8E0B8", "#E4F4E4", "#333333"),
-        arrayOf("#F9D9A0", "#FEF4DC", "#333333"),
-        arrayOf("#C8B8E8", "#EDE8F8", "#333333"),
-        arrayOf("#F4C4A0", "#FDEEE4", "#333333"),
-        arrayOf("#A8D4C8", "#DDF0EC", "#333333"),
-        arrayOf("#F0C4D4", "#FAE8EF", "#333333"),
-        arrayOf("#C4D8F0", "#E4EEF8", "#333333"),
-        arrayOf("#D4E8A8", "#EEF8DC", "#333333")
+    // 渐变色方案：[左色条, 渐变起, 渐变止, 文字色, 节次胶囊色]
+    private val schemes = listOf(
+        arrayOf("#A0B4D8", "#D8E4F4", "#EEF4FC", "#4A6090", "#E0E8F8"),
+        arrayOf("#E090A8", "#F8D0DC", "#FEF0F4", "#B05070", "#FCE4EC"),
+        arrayOf("#80C090", "#C4E8CC", "#E8F8EC", "#3A7050", "#D8F0DC"),
+        arrayOf("#D0A840", "#F0DCA0", "#FAF0D8", "#906020", "#F8ECC8"),
+        arrayOf("#9888C8", "#D8D0F0", "#F0ECFC", "#584890", "#EAE4F8"),
+        arrayOf("#60B0C8", "#B8DDE8", "#E4F4F8", "#307090", "#D0EEF8"),
+        arrayOf("#C07888", "#F0C8D0", "#FCE8EC", "#904858", "#FAD8E0"),
+        arrayOf("#78A878", "#C4DCC4", "#E4F0E4", "#3A6838", "#D4ECD4")
     )
 
     private var displayWeek = 0
     private var selectedDayOfWeek = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
-    private var selectedDayOffset = 0  // 相对今天的天数偏移
+    private var selectedDayOffset = 0
+    private var selectedQueryWeek = 1
 
     private lateinit var weekLabel: TextView
     private lateinit var gridContainer: LinearLayout
@@ -59,10 +59,11 @@ class MainActivity : AppCompatActivity() {
         ScheduleWidget.updateAll(this)
 
         displayWeek = ScheduleData.getCurrentWeek().coerceAtLeast(1)
+        selectedQueryWeek = displayWeek
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#F5F5F7"))
+            setBackgroundColor(Color.parseColor("#EEEEF6"))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.MATCH_PARENT)
@@ -76,40 +77,31 @@ class MainActivity : AppCompatActivity() {
         }
         val contentWrap = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            setPadding(dp(14), 0, dp(14), 0)
         }
 
-        // 顶部日期卡
+        // 顶部日期卡（带阴影）
         contentWrap.addView(buildTopDateCard())
 
         // 日程区域
         scheduleSection = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(12), dp(4), dp(12), dp(8))
         }
-
-        // 子tab：今日课程 / 备忘录
         scheduleSection.addView(buildSubTabBar())
 
-        // 日期选择横条（7天滚动）
         dateSelectorRow = buildDateSelectorRow()
         scheduleSection.addView(dateSelectorRow)
 
-        // 课程时间轴
         dayContent = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(0, dp(8), 0, dp(8))
+            setPadding(0, dp(6), 0, dp(6))
         }
-
-        // 统计三卡（永远显示）
         statsRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT).also {
-                it.topMargin = dp(8)
-            }
+                LinearLayout.LayoutParams.WRAP_CONTENT).also { it.bottomMargin = dp(8) }
         }
-
         noteContent = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, dp(8), 0, dp(8))
@@ -141,7 +133,7 @@ class MainActivity : AppCompatActivity() {
         contentWrap.addView(gridContainer)
         contentWrap.addView(View(this).apply {
             layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(80))
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(90))
         })
 
         scroll.addView(contentWrap)
@@ -154,89 +146,118 @@ class MainActivity : AppCompatActivity() {
         buildGridPage()
     }
 
-    // 顶部日期卡：显示选中日期信息
-    private fun buildTopDateCard(): LinearLayout {
-        val cal = getSelectedCal()
+    // ── 顶部日期卡（白色圆角+阴影）──
+    private fun buildTopDateCard(): FrameLayout {
+        val cal = Calendar.getInstance()
         val month = cal.get(Calendar.MONTH) + 1
         val day = cal.get(Calendar.DAY_OF_MONTH)
         val days = arrayOf("", "周日", "周一", "周二", "周三", "周四", "周五", "周六")
         val dayStr = days[cal.get(Calendar.DAY_OF_WEEK)]
         val week = ScheduleData.getCurrentWeek()
-        val selectedDay = cal.get(Calendar.DAY_OF_WEEK)
         val todayCount = if (week in 1..18)
-            ScheduleData.getCoursesForDay(week, selectedDay).size else 0
-
-        // 明天
-        val tomorrowCal = getSelectedCal().also { it.add(Calendar.DAY_OF_YEAR, 1) }
+            ScheduleData.getCoursesForDay(week, cal.get(Calendar.DAY_OF_WEEK)).size else 0
+        val tomorrowCal = Calendar.getInstance().also { it.add(Calendar.DAY_OF_YEAR, 1) }
         val tomorrowCount = if (week in 1..18)
             ScheduleData.getCoursesForDay(week, tomorrowCal.get(Calendar.DAY_OF_WEEK)).size else 0
 
-        val isToday = selectedDayOffset == 0
-
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(Color.WHITE)
-            setPadding(dp(20), dp(44), dp(20), dp(16))
-            gravity = Gravity.CENTER_VERTICAL
-
-            val left = LinearLayout(this@MainActivity).apply {
-                orientation = LinearLayout.VERTICAL
-                layoutParams = LinearLayout.LayoutParams(0,
-                    LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-            }
-            left.addView(TextView(this@MainActivity).apply {
-                text = if (isToday) "✦  今日日程" else "✦  ${dayStr}日程"
-                textSize = 12f; setTextColor(Color.parseColor("#AAAAAA"))
-            })
-            left.addView(TextView(this@MainActivity).apply {
-                text = "${month}月${day}日"
-                textSize = 28f; typeface = Typeface.DEFAULT_BOLD
-                setTextColor(Color.parseColor("#111111")); setPadding(0, dp(4), 0, 0)
-            })
-            left.addView(TextView(this@MainActivity).apply {
-                text = "$dayStr  ·  $todayCount 门课"
-                textSize = 13f; setTextColor(Color.parseColor("#999999"))
-                setPadding(0, dp(4), 0, 0)
-            })
-            addView(left)
-
-            val rightCard = LinearLayout(this@MainActivity).apply {
-                orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
-                setPadding(dp(14), dp(10), dp(14), dp(10))
-                background = GradientDrawable().apply {
-                    setColor(Color.parseColor("#F0EFFE")); cornerRadius = dp(14).toFloat()
-                }
-                layoutParams = LinearLayout.LayoutParams(dp(68),
-                    LinearLayout.LayoutParams.WRAP_CONTENT)
-            }
-            rightCard.addView(TextView(this@MainActivity).apply {
-                text = "次日"; textSize = 11f
-                setTextColor(Color.parseColor("#9090D8")); gravity = Gravity.CENTER
-            })
-            rightCard.addView(TextView(this@MainActivity).apply {
-                text = "$tomorrowCount"; textSize = 24f; typeface = Typeface.DEFAULT_BOLD
-                setTextColor(Color.parseColor("#9090D8")); gravity = Gravity.CENTER
-                setPadding(0, dp(2), 0, 0)
-            })
-            rightCard.addView(TextView(this@MainActivity).apply {
-                text = "门课"; textSize = 11f
-                setTextColor(Color.parseColor("#AAAAAA")); gravity = Gravity.CENTER
-            })
-            addView(rightCard)
-        }
-    }
-
-    // 7天日期选择横条
-    private fun buildDateSelectorRow(): LinearLayout {
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setBackgroundColor(Color.WHITE)
-            setPadding(dp(8), dp(8), dp(8), dp(8))
+        val frame = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT).also {
-                it.topMargin = dp(6)
+                it.topMargin = dp(44)
+                it.bottomMargin = dp(10)
             }
+            elevation = dp(4).toFloat()  // 阴影
+        }
+
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            background = GradientDrawable().apply {
+                setColor(Color.WHITE); cornerRadius = dp(20).toFloat()
+            }
+            setPadding(dp(20), dp(18), dp(20), dp(18))
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT)
+        }
+
+        val left = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0,
+                LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        val iconRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        iconRow.addView(TextView(this).apply {
+            text = "✦"; textSize = 12f
+            setTextColor(Color.parseColor("#9090D8"))
+            setPadding(0, 0, dp(6), 0)
+        })
+        iconRow.addView(TextView(this).apply {
+            text = "今日日程"; textSize = 12f
+            setTextColor(Color.parseColor("#AAAAAA"))
+        })
+        left.addView(iconRow)
+        left.addView(TextView(this).apply {
+            text = "${month}月${day}日"
+            textSize = 30f; typeface = Typeface.DEFAULT_BOLD
+            setTextColor(Color.parseColor("#111111")); setPadding(0, dp(4), 0, 0)
+        })
+        left.addView(TextView(this).apply {
+            text = "$dayStr  ·  $todayCount 门课"
+            textSize = 13f; setTextColor(Color.parseColor("#999999"))
+            setPadding(0, dp(4), 0, 0)
+        })
+        card.addView(left)
+
+        val rightCard = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
+            setPadding(dp(16), dp(12), dp(16), dp(12))
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#EEEEF8")); cornerRadius = dp(14).toFloat()
+            }
+            layoutParams = LinearLayout.LayoutParams(dp(72),
+                LinearLayout.LayoutParams.WRAP_CONTENT)
+        }
+        rightCard.addView(TextView(this).apply {
+            text = "明日"; textSize = 11f
+            setTextColor(Color.parseColor("#9090D8")); gravity = Gravity.CENTER
+        })
+        rightCard.addView(TextView(this).apply {
+            text = "$tomorrowCount"; textSize = 26f; typeface = Typeface.DEFAULT_BOLD
+            setTextColor(Color.parseColor("#9090D8")); gravity = Gravity.CENTER
+        })
+        rightCard.addView(TextView(this).apply {
+            text = "门课"; textSize = 11f
+            setTextColor(Color.parseColor("#AAAAAA")); gravity = Gravity.CENTER
+        })
+        card.addView(rightCard)
+        frame.addView(card)
+        return frame
+    }
+
+    // ── 7天日期选择条 ──
+    private fun buildDateSelectorRow(): FrameLayout {
+        val frame = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT).also {
+                it.bottomMargin = dp(8)
+            }
+            elevation = dp(2).toFloat()
+        }
+        val bg = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            background = GradientDrawable().apply {
+                setColor(Color.WHITE); cornerRadius = dp(16).toFloat()
+            }
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT)
         }
         val days = arrayOf("", "日", "一", "二", "三", "四", "五", "六")
         for (offset in 0..6) {
@@ -282,121 +303,93 @@ class MainActivity : AppCompatActivity() {
                     FrameLayout.LayoutParams.MATCH_PARENT)
             })
             item.addView(circle)
-            row.addView(item)
+            bg.addView(item)
         }
-        return row
+        frame.addView(bg)
+        return frame
     }
 
     private fun selectDay(offset: Int) {
         selectedDayOffset = offset
         val c = Calendar.getInstance().also { it.add(Calendar.DAY_OF_YEAR, offset) }
         selectedDayOfWeek = c.get(Calendar.DAY_OF_WEEK)
-        // 刷新日期选择条
-        val parent = dateSelectorRow.parent as? LinearLayout
-        val idx = (parent)?.indexOfChild(dateSelectorRow) ?: return
-        val newRow = buildDateSelectorRow()
-        dateSelectorRow = newRow
+        // 修复：根据选中日期计算对应学期周次
+        val semStart = Calendar.getInstance().apply {
+            set(2026, Calendar.AUGUST, 31, 0, 0, 0); set(Calendar.MILLISECOND, 0)
+        }
+        val diffDays = ((c.timeInMillis - semStart.timeInMillis) / 86400000L).toInt()
+        selectedQueryWeek = if (diffDays >= 0) (diffDays / 7) + 1 else -1
+
+        val parent = dateSelectorRow.parent as? LinearLayout ?: return
+        val idx = parent.indexOfChild(dateSelectorRow)
+        dateSelectorRow = buildDateSelectorRow()
         parent.removeViewAt(idx)
-        parent.addView(newRow, idx)
-        // 刷新内容
+        parent.addView(dateSelectorRow, idx)
         refreshDayContent()
     }
 
-    private fun getSelectedCal(): Calendar {
-        return Calendar.getInstance().also { it.add(Calendar.DAY_OF_YEAR, selectedDayOffset) }
-    }
+    private fun getSelectedCal(): Calendar =
+        Calendar.getInstance().also { it.add(Calendar.DAY_OF_YEAR, selectedDayOffset) }
 
     private fun refreshDayContent() {
         dayContent.removeAllViews()
-        val week = ScheduleData.getCurrentWeek()
-        val courses = if (week in 1..18)
-            ScheduleData.getCoursesForDay(week, selectedDayOfWeek)
+        val courses = if (selectedQueryWeek in 1..18)
+            ScheduleData.getCoursesForDay(selectedQueryWeek, selectedDayOfWeek)
         else emptyList()
         buildDayTimeline(courses)
         refreshStats(courses)
     }
 
-    private fun refreshStats(courses: List<Course>) {
-        statsRow.removeAllViews()
-        val totalMins = courses.sumOf { it.getEndMinutes() - it.getStartMinutes() }
-        val freeMins  = if (courses.size > 1) maxOf(0,
-            courses.last().getEndMinutes() - courses.first().getStartMinutes() - totalMins)
-        else 0
-
-        listOf(
-            arrayOf("${courses.size}门", "课程数",  "#9090D8", "#EEEEF8"),
-            arrayOf(formatHours(totalMins), "上课时长", "#70B890", "#E4F4EC"),
-            arrayOf(formatHours(freeMins),  "空闲时间", "#E8A050", "#FEF4E0")
-        ).forEachIndexed { i, item ->
-            val val1 = item[0]; val label = item[1]
-            val textColor = item[2]; val bgColor = item[3]
-            val card = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
-                background = GradientDrawable().apply {
-                    setColor(Color.parseColor(bgColor)); cornerRadius = dp(14).toFloat()
-                }
-                setPadding(dp(8), dp(14), dp(8), dp(14))
-                layoutParams = LinearLayout.LayoutParams(0,
-                    LinearLayout.LayoutParams.WRAP_CONTENT, 1f).also {
-                    if (i < 2) it.marginEnd = dp(8)
-                }
-            }
-            card.addView(TextView(this).apply {
-                text = val1; textSize = 20f; typeface = Typeface.DEFAULT_BOLD
-                setTextColor(Color.parseColor(textColor)); gravity = Gravity.CENTER
-            })
-            card.addView(TextView(this).apply {
-                text = label; textSize = 10f
-                setTextColor(Color.parseColor("#AAAAAA")); gravity = Gravity.CENTER
-                setPadding(0, dp(3), 0, 0)
-            })
-            statsRow.addView(card)
-        }
-    }
-
+    // ── 时间轴（竖线+圆点+渐变课程卡+阴影）──
     private fun buildDayTimeline(courses: List<Course>) {
         val cal = Calendar.getInstance()
         val isToday = selectedDayOffset == 0
         val currentMins = if (isToday)
             cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE) else -1
-
-        val timelineCard = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            background = GradientDrawable().apply {
-                setColor(Color.WHITE); cornerRadius = dp(18).toFloat()
-            }
-            setPadding(dp(16), dp(16), dp(16), dp(16))
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT)
-        }
-
         val days = arrayOf("", "周日", "周一", "周二", "周三", "周四", "周五", "周六")
         val selCal = getSelectedCal()
         val dayStr = days[selCal.get(Calendar.DAY_OF_WEEK)]
 
-        timelineCard.addView(TextView(this).apply {
+        // 白色圆角卡片，有阴影
+        val frame = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT).also { it.bottomMargin = dp(10) }
+            elevation = dp(3).toFloat()
+        }
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                setColor(Color.WHITE); cornerRadius = dp(20).toFloat()
+            }
+            setPadding(dp(16), dp(16), dp(16), dp(16))
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT)
+        }
+
+        card.addView(TextView(this).apply {
             text = if (isToday) "今日日程" else "${dayStr}日程"
             textSize = 16f; typeface = Typeface.DEFAULT_BOLD
             setTextColor(Color.parseColor("#222222"))
         })
-        timelineCard.addView(TextView(this).apply {
-            text = "按上课时间顺序展示课程安排"
+        card.addView(TextView(this).apply {
+            text = "按上课时间顺序展示今天的课程安排"
             textSize = 11f; setTextColor(Color.parseColor("#AAAAAA"))
             setPadding(0, dp(3), 0, dp(12))
         })
 
         if (courses.isEmpty()) {
-            timelineCard.addView(TextView(this).apply {
+            card.addView(TextView(this).apply {
                 text = "这天没有课，好好休息 ☀"
                 textSize = 14f; setTextColor(Color.parseColor("#CCCCCC"))
                 gravity = Gravity.CENTER
-                setPadding(0, dp(24), 0, dp(24))
+                setPadding(0, dp(20), 0, dp(20))
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT)
             })
-            dayContent.addView(timelineCard)
+            frame.addView(card); dayContent.addView(frame)
             return
         }
 
@@ -405,86 +398,156 @@ class MainActivity : AppCompatActivity() {
             val (eh, em) = course.getEndTime()
             val isCurrent = currentMins in course.getStartMinutes()..course.getEndMinutes()
             val isPast    = isToday && currentMins > course.getEndMinutes()
-            val mc = macaron[idx % macaron.size]
+            val sc = schemes[idx % schemes.size]
 
+            // 空闲段（虚线感）
             if (idx > 0) {
                 val gap = course.getStartMinutes() - courses[idx-1].getEndMinutes()
                 if (gap > 0) {
                     val h = gap / 60; val m = gap % 60
-                    timelineCard.addView(TextView(this).apply {
-                        text = "  空闲  ${if (h>0) "${h}h " else ""}${if (m>0) "${m}min" else ""}"
-                        textSize = 11f; setTextColor(Color.parseColor("#CCCCCC"))
-                        setPadding(dp(60), dp(4), 0, dp(4))
+                    val gapRow = LinearLayout(this).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER_VERTICAL
+                        layoutParams = LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT)
+                    }
+                    // 虚线竖条占位
+                    gapRow.addView(LinearLayout(this).apply {
+                        orientation = LinearLayout.VERTICAL
+                        gravity = Gravity.CENTER_HORIZONTAL
+                        layoutParams = LinearLayout.LayoutParams(dp(56),
+                            LinearLayout.LayoutParams.WRAP_CONTENT)
+                        addView(View(this@MainActivity).apply {
+                            layoutParams = LinearLayout.LayoutParams(dp(1), dp(20)).also {
+                                it.gravity = Gravity.CENTER_HORIZONTAL
+                            }
+                            setBackgroundColor(Color.parseColor("#DDDDDD"))
+                        })
                     })
+                    gapRow.addView(TextView(this).apply {
+                        text = "空闲  ${if (h>0) "${h}h " else ""}${if (m>0) "${m}min" else ""}"
+                        textSize = 11f; setTextColor(Color.parseColor("#CCCCCC"))
+                    })
+                    card.addView(gapRow)
                 }
             }
 
+            // 课程行：左侧时间轴 + 右侧渐变卡片
             val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.TOP
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.TOP
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT).also { it.bottomMargin = dp(6) }
+                    LinearLayout.LayoutParams.WRAP_CONTENT).also { it.bottomMargin = dp(8) }
             }
 
+            // 左侧：时间 + 竖线 + 圆点 + 节次胶囊
             val leftCol = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL; gravity = Gravity.TOP
-                layoutParams = LinearLayout.LayoutParams(dp(64),
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(dp(56),
                     LinearLayout.LayoutParams.WRAP_CONTENT)
-                setPadding(0, dp(4), dp(8), 0)
             }
-            val timeRow = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            }
-            timeRow.addView(TextView(this).apply {
-                text = ScheduleData.formatTime(sh, sm); textSize = 14f
-                typeface = Typeface.DEFAULT_BOLD
+            leftCol.addView(TextView(this).apply {
+                text = ScheduleData.formatTime(sh, sm)
+                textSize = 13f; typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.END
                 setTextColor(if (isPast) Color.parseColor("#CCCCCC") else Color.parseColor("#222222"))
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT)
             })
-            if (isCurrent) {
-                timeRow.addView(View(this).apply {
-                    val sz = dp(7)
-                    layoutParams = LinearLayout.LayoutParams(sz, sz).also {
-                        it.marginStart = dp(4); it.gravity = Gravity.CENTER_VERTICAL
-                    }
-                    background = GradientDrawable().apply {
-                        shape = GradientDrawable.OVAL; setColor(Color.parseColor(mc[0]))
-                    }
-                })
-            }
-            leftCol.addView(timeRow)
             leftCol.addView(TextView(this).apply {
-                text = ScheduleData.formatTime(eh, em); textSize = 10f
-                setTextColor(Color.parseColor("#CCCCCC")); setPadding(0, dp(1), 0, dp(6))
+                text = ScheduleData.formatTime(eh, em)
+                textSize = 10f; gravity = Gravity.END
+                setTextColor(Color.parseColor("#CCCCCC"))
+                setPadding(0, dp(1), 0, dp(6))
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT)
             })
-            val lessonStr = "第${course.startLesson}${if (course.endLesson > course.startLesson) "-${course.endLesson}" else ""}节"
+            // 节次胶囊
+            val lessonStr = "${course.startLesson}${if (course.endLesson > course.startLesson) "-${course.endLesson}" else ""}节"
             leftCol.addView(TextView(this).apply {
-                text = lessonStr; textSize = 9f; gravity = Gravity.CENTER
-                setPadding(dp(4), dp(3), dp(4), dp(3))
+                text = lessonStr; textSize = 10f; gravity = Gravity.CENTER
+                setPadding(dp(6), dp(4), dp(6), dp(4))
                 background = GradientDrawable().apply {
-                    setColor(if (isPast) Color.parseColor("#F0F0F0") else Color.parseColor(mc[1]))
-                    cornerRadius = dp(8).toFloat()
+                    setColor(if (isPast) Color.parseColor("#F0F0F0")
+                             else Color.parseColor(sc[4]))
+                    cornerRadius = dp(10).toFloat()
                 }
-                setTextColor(if (isPast) Color.parseColor("#BBBBBB") else Color.parseColor("#666666"))
+                setTextColor(if (isPast) Color.parseColor("#BBBBBB")
+                             else Color.parseColor(sc[3]))
             })
             row.addView(leftCol)
 
+            // 中间：竖线+圆点
+            val lineCol = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                layoutParams = LinearLayout.LayoutParams(dp(20),
+                    LinearLayout.LayoutParams.MATCH_PARENT)
+                setPadding(0, dp(4), 0, 0)
+            }
+            // 圆点
+            lineCol.addView(View(this).apply {
+                val sz = dp(10)
+                layoutParams = LinearLayout.LayoutParams(sz, sz).also {
+                    it.gravity = Gravity.CENTER_HORIZONTAL
+                }
+                background = GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(if (isPast) Color.parseColor("#DDDDDD")
+                             else if (isCurrent) Color.parseColor(sc[0])
+                             else Color.parseColor(sc[0]))
+                }
+            })
+            // 竖线
             val span = course.endLesson - course.startLesson + 1
-            val cardMinH = dp(64) + (span - 1) * dp(18)
+            val lineH = dp(60) + (span - 1) * dp(20)
+            lineCol.addView(View(this).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(2), lineH).also {
+                    it.gravity = Gravity.CENTER_HORIZONTAL
+                }
+                setBackgroundColor(if (isPast) Color.parseColor("#EEEEEE")
+                                   else Color.parseColor(sc[0] + "66"))
+            })
+            row.addView(lineCol)
+
+            // 右侧：渐变圆角卡片（有阴影）
+            val cardFrame = FrameLayout(this).apply {
+                layoutParams = LinearLayout.LayoutParams(0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT, 1f).also {
+                    it.marginStart = dp(8)
+                }
+                elevation = dp(2).toFloat()
+            }
             val courseCard = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
-                background = GradientDrawable().apply {
-                    setColor(if (isPast) Color.parseColor("#F5F5F5") else Color.parseColor(mc[1]))
-                    cornerRadius = dp(10).toFloat()
+                background = if (isPast) {
+                    GradientDrawable().apply {
+                        setColor(Color.parseColor("#F5F5F5"))
+                        cornerRadius = dp(14).toFloat()
+                    }
+                } else {
+                    GradientDrawable(
+                        GradientDrawable.Orientation.LEFT_RIGHT,
+                        intArrayOf(Color.parseColor(sc[1]), Color.parseColor(sc[2]))
+                    ).apply { cornerRadius = dp(14).toFloat() }
                 }
-                layoutParams = LinearLayout.LayoutParams(0,
-                    LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                minimumHeight = cardMinH
-                setPadding(dp(10), dp(12), dp(10), dp(12))
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT)
+                minimumHeight = dp(60) + (span - 1) * dp(20)
+                setPadding(dp(12), dp(14), dp(12), dp(14))
                 gravity = Gravity.CENTER_VERTICAL
             }
+            // 左色条
             courseCard.addView(View(this).apply {
                 background = GradientDrawable().apply {
-                    setColor(if (isPast) Color.parseColor("#DDDDDD") else Color.parseColor(mc[0]))
+                    setColor(if (isPast) Color.parseColor("#DDDDDD")
+                             else Color.parseColor(sc[0]))
                     cornerRadius = dp(3).toFloat()
                 }
                 layoutParams = LinearLayout.LayoutParams(dp(3),
@@ -499,35 +562,85 @@ class MainActivity : AppCompatActivity() {
             if (isCurrent) {
                 textCol.addView(TextView(this).apply {
                     text = "▶ 进行中"; textSize = 9f
-                    setTextColor(Color.parseColor("#888888")); setPadding(0, 0, 0, dp(2))
+                    setTextColor(Color.parseColor(sc[3])); setPadding(0, 0, 0, dp(3))
                 })
             }
             textCol.addView(TextView(this).apply {
-                text = course.name; textSize = 14f; typeface = Typeface.DEFAULT_BOLD
-                setTextColor(if (isPast) Color.parseColor("#BBBBBB") else Color.parseColor("#222222"))
+                text = course.name; textSize = 15f; typeface = Typeface.DEFAULT_BOLD
+                setTextColor(if (isPast) Color.parseColor("#BBBBBB")
+                             else Color.parseColor(sc[3]))
             })
             textCol.addView(TextView(this).apply {
                 text = "@${course.location}"; textSize = 11f
-                setTextColor(if (isPast) Color.parseColor("#CCCCCC") else Color.parseColor("#888888"))
-                setPadding(0, dp(3), 0, 0)
+                setTextColor(if (isPast) Color.parseColor("#CCCCCC")
+                             else Color.parseColor(sc[0]))
+                setPadding(0, dp(4), 0, 0)
             })
             courseCard.addView(textCol)
-            row.addView(courseCard)
-            timelineCard.addView(row)
+            cardFrame.addView(courseCard)
+            row.addView(cardFrame)
+            card.addView(row)
         }
-        dayContent.addView(timelineCard)
+
+        frame.addView(card)
+        dayContent.addView(frame)
+    }
+
+    private fun refreshStats(courses: List<Course>) {
+        statsRow.removeAllViews()
+        val totalMins = courses.sumOf { it.getEndMinutes() - it.getStartMinutes() }
+        val freeMins  = if (courses.size > 1) maxOf(0,
+            courses.last().getEndMinutes() - courses.first().getStartMinutes() - totalMins) else 0
+
+        listOf(
+            arrayOf("${courses.size}门", "今日门数", "#8888D0", "#EEEEF8"),
+            arrayOf(formatHours(totalMins), "上课时长", "#60B080", "#E4F4EC"),
+            arrayOf(formatHours(freeMins),  "空闲时间", "#E09040", "#FEF4E0")
+        ).forEachIndexed { i, item ->
+            val val1 = item[0]; val label = item[1]
+            val textColor = item[2]; val bgColor = item[3]
+            val f = FrameLayout(this).apply {
+                layoutParams = LinearLayout.LayoutParams(0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT, 1f).also {
+                    if (i < 2) it.marginEnd = dp(8)
+                }
+                elevation = dp(2).toFloat()
+            }
+            val c = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
+                background = GradientDrawable().apply {
+                    setColor(Color.parseColor(bgColor)); cornerRadius = dp(16).toFloat()
+                }
+                setPadding(dp(8), dp(16), dp(8), dp(16))
+                layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT)
+            }
+            c.addView(TextView(this).apply {
+                text = val1; textSize = 22f; typeface = Typeface.DEFAULT_BOLD
+                setTextColor(Color.parseColor(textColor)); gravity = Gravity.CENTER
+            })
+            c.addView(TextView(this).apply {
+                text = label; textSize = 10f
+                setTextColor(Color.parseColor("#AAAAAA")); gravity = Gravity.CENTER
+                setPadding(0, dp(3), 0, 0)
+            })
+            f.addView(c); statsRow.addView(f)
+        }
     }
 
     private fun buildSubTabBar(): LinearLayout {
         val bg = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             background = GradientDrawable().apply {
-                setColor(Color.parseColor("#EAEAF2")); cornerRadius = dp(14).toFloat()
+                setColor(Color.parseColor("#E4E4EE")); cornerRadius = dp(14).toFloat()
             }
             setPadding(dp(4), dp(4), dp(4), dp(4))
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT).also { it.topMargin = dp(4) }
+                LinearLayout.LayoutParams.WRAP_CONTENT).also {
+                it.topMargin = dp(6); it.bottomMargin = dp(6)
+            }
         }
         val names = listOf("日程", "备忘录")
         subTabViews = names.mapIndexed { i, name ->
@@ -543,11 +656,16 @@ class MainActivity : AppCompatActivity() {
         return bg
     }
 
-    private fun buildBottomNav(): LinearLayout {
+    private fun buildBottomNav(): FrameLayout {
+        val frame = FrameLayout(this).apply {
+            elevation = dp(8).toFloat()
+        }
         val wrap = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.WHITE)
-            elevation = dp(8).toFloat()
+            background = GradientDrawable().apply { setColor(Color.WHITE) }
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT)
         }
         wrap.addView(View(this).apply {
             setBackgroundColor(Color.parseColor("#EEEEEE"))
@@ -564,12 +682,11 @@ class MainActivity : AppCompatActivity() {
                 orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
                 layoutParams = LinearLayout.LayoutParams(0,
                     LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                setPadding(dp(4), dp(8), dp(4), dp(4))
+                setPadding(dp(4), dp(6), dp(4), dp(4))
                 setOnClickListener { switchMainTab(i) }
             }
             item.addView(TextView(this).apply {
-                text = label; textSize = 14f; gravity = Gravity.CENTER
-                tag = "tab_$i"
+                text = label; textSize = 14f; gravity = Gravity.CENTER; tag = "tab_$i"
             })
             item.addView(View(this).apply {
                 layoutParams = LinearLayout.LayoutParams(dp(4), dp(4)).also {
@@ -584,7 +701,8 @@ class MainActivity : AppCompatActivity() {
         }
         mainTabViews.forEach { bar.addView(it) }
         wrap.addView(bar)
-        return wrap
+        frame.addView(wrap)
+        return frame
     }
 
     private fun switchMainTab(index: Int) {
@@ -596,8 +714,8 @@ class MainActivity : AppCompatActivity() {
     private fun updateMainTabStyles(selected: Int) {
         mainTabViews.forEachIndexed { i, item ->
             val active = i == selected
-            val color = if (active) "#333333" else "#BBBBBB"
-            item.findViewWithTag<TextView>("tab_$i")?.setTextColor(Color.parseColor(color))
+            item.findViewWithTag<TextView>("tab_$i")
+                ?.setTextColor(Color.parseColor(if (active) "#333333" else "#BBBBBB"))
             item.findViewWithTag<TextView>("tab_$i")?.typeface =
                 if (active) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
             (item.findViewWithTag<View>("dot_$i")?.background as? GradientDrawable)
@@ -615,14 +733,12 @@ class MainActivity : AppCompatActivity() {
     private fun updateSubTabStyles(selected: Int) {
         subTabViews.forEachIndexed { i, tv ->
             if (i == selected) {
-                tv.setTextColor(Color.parseColor("#222222"))
-                tv.typeface = Typeface.DEFAULT_BOLD
+                tv.setTextColor(Color.parseColor("#222222")); tv.typeface = Typeface.DEFAULT_BOLD
                 tv.background = GradientDrawable().apply {
                     setColor(Color.WHITE); cornerRadius = dp(12).toFloat()
                 }
             } else {
-                tv.setTextColor(Color.parseColor("#AAAAAA"))
-                tv.typeface = Typeface.DEFAULT
+                tv.setTextColor(Color.parseColor("#AAAAAA")); tv.typeface = Typeface.DEFAULT
                 tv.background = null
             }
         }
@@ -632,28 +748,30 @@ class MainActivity : AppCompatActivity() {
         gridContainer.removeAllViews()
         val weekBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            setBackgroundColor(Color.WHITE); setPadding(dp(16), dp(10), dp(16), dp(10))
+            setBackgroundColor(Color.WHITE)
+            // 压缩高度
+            setPadding(dp(14), dp(8), dp(14), dp(8))
         }
         weekLabel = TextView(this).apply {
-            text = "第${displayWeek}周"; textSize = 14f; typeface = Typeface.DEFAULT_BOLD
+            text = "第${displayWeek}周"; textSize = 13f; typeface = Typeface.DEFAULT_BOLD
             setTextColor(Color.parseColor("#222222")); gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(0,
                 LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
         weekBar.addView(TextView(this).apply {
-            text = "＜"; textSize = 18f; setTextColor(Color.parseColor("#AAAAAA"))
-            setPadding(dp(4), dp(4), dp(12), dp(4))
+            text = "＜"; textSize = 16f; setTextColor(Color.parseColor("#AAAAAA"))
+            setPadding(dp(4), dp(4), dp(10), dp(4))
             setOnClickListener { if (displayWeek > 1) { displayWeek--; refreshGrid() } }
         })
         weekBar.addView(weekLabel)
         weekBar.addView(TextView(this).apply {
-            text = "＞"; textSize = 18f; setTextColor(Color.parseColor("#AAAAAA"))
-            setPadding(dp(12), dp(4), dp(4), dp(4))
+            text = "＞"; textSize = 16f; setTextColor(Color.parseColor("#AAAAAA"))
+            setPadding(dp(10), dp(4), dp(4), dp(4))
             setOnClickListener { if (displayWeek < 18) { displayWeek++; refreshGrid() } }
         })
         weekBar.addView(TextView(this).apply {
-            text = "本周"; textSize = 11f; setTextColor(Color.parseColor("#9090D8"))
-            setPadding(dp(12), dp(4), dp(4), dp(4))
+            text = "本周"; textSize = 10f; setTextColor(Color.parseColor("#9090D8"))
+            setPadding(dp(10), dp(4), 0, dp(4))
             setOnClickListener {
                 displayWeek = ScheduleData.getCurrentWeek().coerceAtLeast(1); refreshGrid()
             }
@@ -692,14 +810,14 @@ class MainActivity : AppCompatActivity() {
         val currentWeek = ScheduleData.getCurrentWeek()
         val currentDay  = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
         val weekDates   = getWeekDates(displayWeek)
-        val slotH = dp(54); val headerH = dp(48); val leftW = dp(38)
+        val slotH = dp(52); val headerH = dp(44); val leftW = dp(36)
 
         val table = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT)
-            setBackgroundColor(Color.parseColor("#F5F5F7"))
+            setBackgroundColor(Color.parseColor("#EEEEF6"))
         }
 
         val lessonCol = LinearLayout(this).apply {
@@ -708,7 +826,7 @@ class MainActivity : AppCompatActivity() {
             setBackgroundColor(Color.WHITE)
         }
         lessonCol.addView(TextView(this).apply {
-            text = "${weekDates[0].first}月"; textSize = 9f
+            text = "${weekDates[0].first}月"; textSize = 8f
             setTextColor(Color.parseColor("#AAAAAA")); gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(leftW, headerH)
         })
@@ -763,7 +881,7 @@ class MainActivity : AppCompatActivity() {
                              else Color.parseColor("#AAAAAA"))
             })
             val frame = FrameLayout(this).apply {
-                layoutParams = LinearLayout.LayoutParams(dp(28), dp(28)).also {
+                layoutParams = LinearLayout.LayoutParams(dp(26), dp(26)).also {
                     it.topMargin = dp(2); it.gravity = Gravity.CENTER_HORIZONTAL
                 }
             }
@@ -814,7 +932,7 @@ class MainActivity : AppCompatActivity() {
                 col.addView(View(this).apply {
                     layoutParams = LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT, slotH)
-                    setBackgroundColor(Color.parseColor("#F5F5F7"))
+                    setBackgroundColor(Color.parseColor("#EEEEF6"))
                 })
                 lesson++
             }
@@ -828,12 +946,12 @@ class MainActivity : AppCompatActivity() {
         val span   = course.endLesson - course.startLesson + 1
         val height = slotH * span - dp(1)
         val idx    = ScheduleData.COURSES.indexOf(course).coerceAtLeast(0)
-        val mc     = macaron[idx % macaron.size]
-        val bgColor = if (isActive) Color.parseColor(mc[1])
+        val sc     = schemes[idx % schemes.size]
+        val bgColor = if (isActive) Color.parseColor(sc[1])
                       else Color.argb(50,
-                          Color.red(Color.parseColor(mc[1])),
-                          Color.green(Color.parseColor(mc[1])),
-                          Color.blue(Color.parseColor(mc[1])))
+                          Color.red(Color.parseColor(sc[1])),
+                          Color.green(Color.parseColor(sc[1])),
+                          Color.blue(Color.parseColor(sc[1])))
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(3), dp(4), dp(3), dp(3))
@@ -841,21 +959,19 @@ class MainActivity : AppCompatActivity() {
                 setColor(bgColor); cornerRadius = dp(6).toFloat()
             }
             layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, height).also {
-                it.bottomMargin = dp(1)
-            }
+                LinearLayout.LayoutParams.MATCH_PARENT, height).also { it.bottomMargin = dp(1) }
             if (!isActive) addView(TextView(this@MainActivity).apply {
                 text = "非本周"; textSize = 6f; setTextColor(Color.parseColor("#BBBBBB"))
             })
             addView(TextView(this@MainActivity).apply {
                 text = course.name
                 textSize = if (span == 1) 8f else 9f; typeface = Typeface.DEFAULT_BOLD
-                setTextColor(if (isActive) Color.parseColor("#333333") else Color.parseColor("#CCCCCC"))
+                setTextColor(if (isActive) Color.parseColor(sc[3]) else Color.parseColor("#CCCCCC"))
                 maxLines = if (span >= 3) 3 else 2
             })
             addView(TextView(this@MainActivity).apply {
                 text = "@${course.location}"; textSize = 7f
-                setTextColor(if (isActive) Color.parseColor("#666666") else Color.parseColor("#DDDDDD"))
+                setTextColor(if (isActive) Color.parseColor(sc[0]) else Color.parseColor("#DDDDDD"))
                 setPadding(0, dp(1), 0, 0)
             })
         }
