@@ -5,24 +5,41 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="#FFFFFFFF"
-    android:padding="16dp"
-    android:gravity="center_vertical">
+    android:padding="12dp">
 
+    <!-- 顶部：周次+星期 -->
     <TextView
         android:id="@+id/tv_week"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textColor="#AAAAAA"
-        android:textSize="10sp"
+        android:textSize="9sp"
         android:text="第1周 周一" />
+
+    <!-- 分割线 -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="6dp"
+        android:layout_marginBottom="6dp"
+        android:background="#F0F0F0" />
+
+    <!-- 本节课 -->
+    <TextView
+        android:id="@+id/tv_label_current"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#7EB0D8"
+        android:textSize="8sp"
+        android:text="本节" />
 
     <TextView
         android:id="@+id/tv_course_name"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
+        android:layout_marginTop="1dp"
         android:textColor="#222222"
-        android:textSize="15sp"
+        android:textSize="13sp"
         android:textStyle="bold"
         android:maxLines="1"
         android:ellipsize="end"
@@ -32,9 +49,46 @@
         android:id="@+id/tv_course_detail"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
+        android:layout_marginTop="1dp"
         android:textColor="#AAAAAA"
+        android:textSize="9sp"
+        android:text="H404  08:00–08:40" />
+
+    <!-- 分割线 -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginTop="6dp"
+        android:layout_marginBottom="6dp"
+        android:background="#F0F0F0" />
+
+    <!-- 下节课 -->
+    <TextView
+        android:id="@+id/tv_label_next"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#AAAAAA"
+        android:textSize="8sp"
+        android:text="下节" />
+
+    <TextView
+        android:id="@+id/tv_next_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="1dp"
+        android:textColor="#555555"
         android:textSize="11sp"
-        android:text="H404  08:00 上课" />
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:text="影视后期与节目制作" />
+
+    <TextView
+        android:id="@+id/tv_next_detail"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="1dp"
+        android:textColor="#BBBBBB"
+        android:textSize="9sp"
+        android:text="H603  09:35–10:15" />
 
 </LinearLayout>
