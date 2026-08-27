@@ -107,7 +107,6 @@ class MainActivity : AppCompatActivity() {
 
         currentBar = buildCurrentBar()
         root.addView(currentBar)
-
         root.addView(buildBottomNav())
 
         buildTodayPage()
@@ -133,9 +132,9 @@ class MainActivity : AppCompatActivity() {
             })
             addView(TextView(this@MainActivity).apply {
                 text = when {
-                    week <= 0  -> "还没开学"
-                    week > 18  -> "学期结束"
-                    else       -> "第${week}周 · 今日${ScheduleData.getTodayCourses().size}门课"
+                    week <= 0 -> "还没开学"
+                    week > 18 -> "学期结束"
+                    else      -> "第${week}周 · 今日${ScheduleData.getTodayCourses().size}门课"
                 }
                 textSize = 12f; setTextColor(Color.parseColor("#999999"))
                 setPadding(0, dp(4), 0, 0)
@@ -551,7 +550,6 @@ class MainActivity : AppCompatActivity() {
                 LinearLayout.LayoutParams.WRAP_CONTENT)
         }
 
-        // 节次列
         val lessonCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(dp(32), LinearLayout.LayoutParams.WRAP_CONTENT)
@@ -609,7 +607,7 @@ class MainActivity : AppCompatActivity() {
             while (lesson <= 10) {
                 val course = courses.firstOrNull { it.startLesson == lesson }
                 if (course != null) {
-                    val span = course.endLesson - course.startLesson + 1
+                    val span  = course.endLesson - course.startLesson + 1
                     val color = courseColor(course.name)
                     val (sh, sm) = course.getStartTime()
                     val (eh, em) = course.getEndTime()
